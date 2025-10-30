@@ -60,11 +60,13 @@ def swap_face(source_face, target_face, temp_frame):
     return get_face_swapper().get(temp_frame, target_face, source_face, paste_back=True)
 
 def process_image(source_path: str, target_path: str, output_path: str):
+    t = time.time()
     source_face = get_one_face(cv2.imread(source_path))
     target_frame = cv2.imread(target_path) # frame object 
     reference_face = get_one_face(target_frame, 0)
     result = process_frame(source_face, reference_face, target_frame)
     cv2.imwrite(output_path, result)
+    print("Execution time:", time.time() - t)
 
 def process_frame(source_face, reference_face, temp_frame):       
     target_face = reference_face #find_similar_face(temp_frame, reference_face)
@@ -74,9 +76,11 @@ def process_frame(source_face, reference_face, temp_frame):
 
 
 def process_image_enhancer(source_path: str, target_path: str, output_path: str):   
+    t = time.time()
     target_frame = cv2.imread(target_path)
     result = process_frame_enhancer(None, None, target_frame)
     cv2.imwrite(output_path, result)
+    print("Enhancer Execution time:", time.time() - t)
 
 def process_frame_enhancer(source_face, reference_face, temp_frame):
     many_faces = get_many_faces(temp_frame)
@@ -160,6 +164,6 @@ if __name__ == "__main__":
     t = time.time()
     print("Starting timer...")
     shutil.copy2(t_path, o_path)
-    process_image(s_path, t_path, o_path)
+    process_image(s_path, t_path, o_path)    
     process_image_enhancer(s_path, o_path, o_path)
     print("Execution time:", time.time() - t)

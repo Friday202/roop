@@ -5,12 +5,37 @@ import shutil
 import random
 from gfpgan.utils import GFPGANer
 import b
+import face_enhancement
+import argparse
 
 
 FACE_SWAPPER = None
 FACE_ANALYSER = None
 FACE_ENHANCER = None
+
 USE_ONNX = False
+USE_OTHER_ENHANCER = False
+
+args = argparse.Namespace(
+    task="FaceEnhancement",
+    model="GPEN-BFR-256",
+    key=None,
+    in_size=256,
+    #out_size=256,
+    channel_multiplier=1,
+    narrow=0.5,
+    alpha=1.0,
+    use_sr=True,
+    use_cuda=False,
+    save_face=True,
+    aligned=False,
+    sr_model="realesrnet",
+    sr_scale=4,
+    tile_size=400,
+    indir=r"D:\Users\RPS dev\Desktop\faceswapp_results\inswapper_pc",
+    outdir="examples/outs-selfie",
+    ext=".jpg",
+)
 
 def randomize_image(input_path, output_path):
     with open(input_path, "rb") as f:
@@ -123,6 +148,11 @@ def enhance_face_onnx(target_face, temp_frame):
         temp_frame[start_y:end_y, start_x:end_x] = temp_face
     return temp_frame
 
+def process_image_enhancer_other(source_path: str, target_path: str, output_path: str):
+    img = cv2.imread(target_path)
+    img_out, orig_faces, enhanced_faces = get_face_enhancer_other().process(img, aligned=args.aligned) 
+    cv2.imwrite(output_path, img_out)
+
 def get_face_enhancer():
     global FACE_ENHANCER
     
@@ -141,22 +171,33 @@ def get_face_enhancer_onnx():
        
     return FACE_ENHANCER
 
+def get_face_enhancer_other():
+    global FACE_ENHANCER
+    
+    if FACE_ENHANCER is None:        
+        #model_path = 'models/RealESRGAN_x4plus.pth'        
+        FACE_ENHANCER = face_enhancement.FaceEnhancement(args, in_size=args.in_size, model=args.model, use_sr=args.use_sr, device='cpu')
+       
+    return FACE_ENHANCER
 
 def pre_load_models():
     get_face_analyser()    
     get_face_swapper()
 
-    if USE_ONNX:
-        get_face_enhancer_onnx()
+    if USE_OTHER_ENHANCER:
+        get_face_enhancer_other()
     else:
-        get_face_enhancer()
+        if USE_ONNX:
+            get_face_enhancer_onnx()
+        else:
+            get_face_enhancer()
 
 if __name__ == "__main__":
     pre_load_models()
 
     s_path = r"D:\Users\RPS dev\Desktop\faceswapp_results\original\source_512.png"
     t_path = r"D:\Users\RPS dev\Desktop\faceswapp_results\original\target_512.png"
-    o_path = r"D:\Users\RPS dev\Desktop\faceswapp_results\inswapper_pc\out_torch.jpg"
+    o_path = r"D:\Users\RPS dev\Desktop\faceswapp_results\inswapper_pc\out1.jpg"
 
     #randomize_image(t_path, o_path)
     #randomize_image(s_path, o_path)
@@ -164,6 +205,9 @@ if __name__ == "__main__":
     t = time.time()
     print("Starting timer...")
     shutil.copy2(t_path, o_path)
-    process_image(s_path, t_path, o_path)    
-    process_image_enhancer(s_path, o_path, o_path)
+    process_image(s_path, t_path, o_path)  
+    if USE_OTHER_ENHANCER:
+        process_image_enhancer_other(s_path, o_path, o_path)
+    else:
+        process_image_enhancer(s_path, o_path, o_path)
     print("Execution time:", time.time() - t)

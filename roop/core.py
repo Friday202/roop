@@ -15,6 +15,7 @@ import shutil
 import argparse
 import onnxruntime
 import tensorflow
+import time 
 import roop.globals
 import roop.metadata
 import roop.ui as ui
@@ -116,9 +117,9 @@ def pre_check() -> bool:
     if sys.version_info < (3, 9):
         update_status('Python version is not supported - please upgrade to 3.9 or higher.')
         return False
-    if not shutil.which('ffmpeg'):
-        update_status('ffmpeg is not installed.')
-        return False
+    #if not shutil.which('ffmpeg'):
+    #    update_status('ffmpeg is not installed.')
+    #    return True
     return True
 
 
@@ -128,25 +129,61 @@ def update_status(message: str, scope: str = 'ROOP.CORE') -> None:
         ui.update_status(message)
 
 
-def start() -> None:
+def start() -> None:    
     for frame_processor in get_frame_processors_modules(roop.globals.frame_processors):
-        if not frame_processor.pre_start():
-            return
+        frame_processor.dummy_load_model()
+
+    t = time.time()
+    shutil.copy2(roop.globals.target_path, roop.globals.output_path)
+    for frame_processor in get_frame_processors_modules(roop.globals.frame_processors):            
+        #update_status('Progressing...', frame_processor.NAME)
+        frame_processor.process_image(roop.globals.source_path, roop.globals.output_path, roop.globals.output_path)
+        frame_processor.post_process()
+    t = time.time() - t
+    print(f"Processed frame(s) in {t:.2f} seconds")
+           
+
+def start1() -> None:    
+    times = []
+    s_time = time.time()    
+    #for frame_processor in get_frame_processors_modules(roop.globals.frame_processors):
+    #    if not frame_processor.pre_start():
+    #        return    
+    times.append(time.time() - s_time)
+    print(f"Initial checks completed in {time.time() - s_time:.2f} seconds")
     # process image to image
     if has_image_extension(roop.globals.target_path):
-        if predict_image(roop.globals.target_path):
-            destroy()
+        start_time = time.time()
+        #if predict_image(roop.globals.target_path):
+        #    destroy()        
+        times.append(time.time() - start_time)
+        print(f"Predicted image in {time.time() - start_time:.2f} seconds")
+        
+        start_time = time.time()
         shutil.copy2(roop.globals.target_path, roop.globals.output_path)
+        times.append(time.time() - start_time)
+        print(f"Copied image in {time.time() - start_time:.2f} seconds")
         # process frame
+        t = time.time()
         for frame_processor in get_frame_processors_modules(roop.globals.frame_processors):
+            start_time = time.time()
             update_status('Progressing...', frame_processor.NAME)
             frame_processor.process_image(roop.globals.source_path, roop.globals.output_path, roop.globals.output_path)
             frame_processor.post_process()
+            times.append(time.time() - start_time)
+            print(f"Processed image with {frame_processor.NAME} in {time.time() - start_time:.2f} seconds")
+        t = time.time() - t
+        print(f"Processed frame(s) in {t:.2f} seconds")
         # validate image
-        if is_image(roop.globals.target_path):
-            update_status('Processing to image succeed!')
-        else:
-            update_status('Processing to image failed!')
+        #if is_image(roop.globals.target_path):
+        #    update_status('Processing to image succeed!')           
+        #else:
+        #    update_status('Processing to image failed!')
+
+        print(f"Total processing time: {time.time() - s_time:.2f} seconds")
+        print(f"Summed times: {sum(times):.2f} seconds")
+        print(times)
+        
         return
     # process image to videos
     if predict_video(roop.globals.target_path):
@@ -206,6 +243,11 @@ def destroy() -> None:
 
 
 def run() -> None:
+    parse_args()
+    start()
+    return 
+
+
     parse_args()
     if not pre_check():
         return

@@ -2,6 +2,7 @@ from typing import Any, List, Callable
 import cv2
 import insightface
 import threading
+import time 
 
 import roop.globals
 import roop.processors.frame.core
@@ -15,14 +16,20 @@ FACE_SWAPPER = None
 THREAD_LOCK = threading.Lock()
 NAME = 'ROOP.FACE-SWAPPER'
 
+def dummy_load_model() -> None:
+    get_face_swapper()
 
 def get_face_swapper() -> Any:
     global FACE_SWAPPER
 
     with THREAD_LOCK:
         if FACE_SWAPPER is None:
+            start_time = time.time()
             model_path = resolve_relative_path('../models/inswapper_128.onnx')
-            FACE_SWAPPER = insightface.model_zoo.get_model(model_path, providers=roop.globals.execution_providers)
+            #FACE_SWAPPER = insightface.model_zoo.get_model(model_path, providers=roop.globals.execution_providers)
+            FACE_SWAPPER = insightface.model_zoo.get_model(model_path, providers="CUDAExecutionProvider")
+            end_time = time.time()
+            print(f"Loaded face swapper model in {end_time - start_time:.2f} seconds")
     return FACE_SWAPPER
 
 
@@ -85,11 +92,14 @@ def process_frames(source_path: str, temp_frame_paths: List[str], update: Callab
 
 
 def process_image(source_path: str, target_path: str, output_path: str) -> None:
+    start_time = time.time()
     source_face = get_one_face(cv2.imread(source_path))
-    target_frame = cv2.imread(target_path)
+    target_frame = cv2.imread(target_path) # frame object 
     reference_face = None if roop.globals.many_faces else get_one_face(target_frame, roop.globals.reference_face_position)
     result = process_frame(source_face, reference_face, target_frame)
     cv2.imwrite(output_path, result)
+    end_time = time.time()
+    print(f"Processed image in {end_time - start_time:.2f} seconds")
 
 
 def process_video(source_path: str, temp_frame_paths: List[str]) -> None:

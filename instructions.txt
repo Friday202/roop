@@ -1,0 +1,10 @@
+#git clone repo 
+
+#required python version is 3.11.2
+#if multiple pythons else
+
+#py -3.11 -m venv venv
+
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r requirements1.txt

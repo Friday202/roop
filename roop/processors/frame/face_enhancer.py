@@ -2,8 +2,11 @@ from typing import Any, List, Callable
 import cv2
 import threading
 from gfpgan.utils import GFPGANer
+import onnxruntime as ort
 
 import roop.globals
+import time 
+import insightface
 import roop.processors.frame.core
 from roop.core import update_status
 from roop.face_analyser import get_many_faces
@@ -15,15 +18,33 @@ THREAD_SEMAPHORE = threading.Semaphore()
 THREAD_LOCK = threading.Lock()
 NAME = 'ROOP.FACE-ENHANCER'
 
+def dummy_load_model() -> None:
+    get_face_enhancer()
+
+def get_face_enhancer1() -> Any:
+    global FACE_ENHANCER
+
+    with THREAD_LOCK:
+        if FACE_ENHANCER is None:
+            start_time = time.time()
+            model_path = resolve_relative_path('../models/GFPGANv1.4.onnx')
+            FACE_ENHANCER = insightface.model_zoo.get_model(model_path, providers=roop.globals.execution_providers)
+            end_time = time.time()
+            print(f"Loaded face enhancer ONNX model in {end_time - start_time:.2f} seconds")
+
+    return FACE_ENHANCER
 
 def get_face_enhancer() -> Any:
     global FACE_ENHANCER
 
     with THREAD_LOCK:
         if FACE_ENHANCER is None:
+            start_time = time.time()
             model_path = resolve_relative_path('../models/GFPGANv1.4.pth')
             # todo: set models path -> https://github.com/TencentARC/GFPGAN/issues/399
             FACE_ENHANCER = GFPGANer(model_path=model_path, upscale=1, device=get_device())
+            end_time = time.time()
+            print(f"Loaded face enhancer model in {end_time - start_time:.2f} seconds")
     return FACE_ENHANCER
 
 
@@ -95,9 +116,12 @@ def process_frames(source_path: str, temp_frame_paths: List[str], update: Callab
 
 
 def process_image(source_path: str, target_path: str, output_path: str) -> None:
+    start_time = time.time()
     target_frame = cv2.imread(target_path)
     result = process_frame(None, None, target_frame)
     cv2.imwrite(output_path, result)
+    end_time = time.time()
+    print(f"Enhanced image in {end_time - start_time:.2f} seconds")
 
 
 def process_video(source_path: str, temp_frame_paths: List[str]) -> None:
